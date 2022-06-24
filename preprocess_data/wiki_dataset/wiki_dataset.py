@@ -76,6 +76,23 @@ class WikiDataset(tfds.core.GeneratorBasedBuilder):
     
       for line in csv_file:
           gender, age, img_path = line
+          age = int(age)
+
+          if age >= 0 and age <10:
+            age = 0
+          elif age >= 10 and age <20:
+            age = 1
+          elif age >= 20 and age <30:
+            age = 2
+          elif age >= 30 and age <40:
+            age = 3
+          elif age >= 40 and age <50:
+            age = 4
+          elif age >= 50 and age <69:
+            age = 5
+          else:
+            age = 6
+
           gender_list.append(gender)
           age_list.append(age)
           img_path_list.append(img_path)
