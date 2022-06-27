@@ -9,13 +9,13 @@ from .model_zoo.DDRNet_23_slim import ddrnet_23_slim
 from .model_zoo.mobileNetV3 import MobileNetV3_Small
 
 
-def age_estimation_model(image_size, num_classes=2, loss_type='sparse'):
+def age_estimation_model(image_size, num_classes=2, loss_type='softmax'):
     if loss_type == 'sparse':
         classifier_activation = None
     else:
         classifier_activation = "softmax"
-        
-    model = EfficientNetV2M(input_shape=(image_size[0], image_size[1], 3),
+
+    model = EfficientNetV2S(input_shape=(image_size[0], image_size[1], 3),
                             num_classes=num_classes,
                             classifier_activation=classifier_activation)
 

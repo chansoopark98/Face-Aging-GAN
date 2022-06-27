@@ -1,9 +1,9 @@
-from re import A
 from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from models.model_builder import age_estimation_model
 from utils.load_dataset import DatasetGenerator
-from utils.loss import SparseCategoricalFocalLoss
+from utils.loss import SparseCategoricalFocalLoss, ce_loss
+from utils.metircs import MIoU
 import argparse
 import time
 import os
@@ -19,9 +19,9 @@ tf.keras.backend.clear_session()
 
 parser = argparse.ArgumentParser()
 # Model name : ImageSize_BATCH_EPOCH_InitLR_Optimizer_GPU(single or multi)
-parser.add_argument("--model_prefix",     type=str,   help="Model name", default='320-180_8_50_0.001_adam_single_EFFNet')
-parser.add_argument("--dataset_name",     type=str,   help="Dataset name", default='imdb_dataset')
-parser.add_argument("--batch_size",     type=int,   help="배치 사이즈값 설정", default=64)
+parser.add_argument("--model_prefix",     type=str,   help="Model name", default='224_32_100_0.001_adam_single_EFFNetVS')
+parser.add_argument("--dataset_name",     type=str,   help="Dataset name", default='ffhq_dataset')
+parser.add_argument("--batch_size",     type=int,   help="배치 사이즈값 설정", default=32)
 parser.add_argument("--epoch",          type=int,   help="에폭 설정", default=100)
 parser.add_argument("--lr",             type=float, help="Learning rate 설정", default=0.001)
 parser.add_argument("--weight_decay",   type=float, help="Weight Decay 설정", default=0.0005)
@@ -100,10 +100,10 @@ class Train():
         checkpoint_val_loss = ModelCheckpoint(self.CHECKPOINT_DIR + self.args.model_name+ '/_' + self.SAVE_MODEL_NAME + '_best_loss.h5',
                                             monitor='val_loss', save_best_only=True, save_weights_only=True, verbose=1)
         checkpoint_val_iou = ModelCheckpoint(self.CHECKPOINT_DIR + self.args.model_name +'/_' + self.SAVE_MODEL_NAME + '_best_iou.h5',
-                                            monitor='val_m_io_u', save_best_only=True, save_weights_only=True,
+                                            monitor='val_accuracy', save_best_only=True, save_weights_only=True,
                                             verbose=1, mode='max')
 
-        tensorboard = tf.keras.callbacks.TensorBoard(log_dir=self.TENSORBOARD_DIR +'semantic/' + self.MODEL_PREFIX, write_graph=True, write_images=True)
+        tensorboard = tf.keras.callbacks.TensorBoard(log_dir=self.TENSORBOARD_DIR +'training/' + self.MODEL_PREFIX, write_graph=True, write_images=True)
 
         polyDecay = tf.keras.optimizers.schedules.PolynomialDecay(initial_learning_rate=self.INIT_LR,
                                                                 decay_steps=self.EPOCHS,
@@ -137,13 +137,15 @@ class Train():
 
     
     def configuration_metric(self):
+        # miou = MIoU(7)
         self.metrics = ['accuracy']
 
 
     def train(self):
+        # SparseCategoricalFocalLoss(gamma=2, from_logits=True)
         self.model.compile(
             optimizer=self.optimizer,
-            loss=SparseCategoricalFocalLoss(gamma=2, from_logits=True),
+            loss=ce_loss,
             metrics=self.metrics
             )
 

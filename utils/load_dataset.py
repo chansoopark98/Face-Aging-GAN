@@ -1,7 +1,8 @@
 from tensorflow.keras.applications.imagenet_utils import preprocess_input
 import tensorflow_datasets as tfds
 import tensorflow as tf
-import numpy as np
+from tensorflow.keras.utils import to_categorical
+
 
 AUTO = tf.data.experimental.AUTOTUNE
 
@@ -33,8 +34,12 @@ class DatasetGenerator:
                                data_dir=self.data_dir, split='train[90%:]', shuffle_files=True)
 
         valid_data = valid_1.concatenate(valid_2)
-
-        number_valid = valid_data.reduce(0, lambda x, _: x + 1).numpy()
+        
+        if self.dataset_name == 'ffhq_dataset':
+            number_valid = 14000
+        else:
+            number_valid = valid_data.reduce(0, lambda x, _: x + 1).numpy()
+        
         print("검증 데이터 개수:", number_valid)
 
         return valid_data, number_valid
@@ -47,7 +52,10 @@ class DatasetGenerator:
 
         train_data = train_1.concatenate(train_2)
 
-        number_train = train_data.reduce(0, lambda x, _: x + 1).numpy()
+        if self.dataset_name == 'ffhq_dataset':
+            number_train = 126000
+        else:
+            number_train = train_data.reduce(0, lambda x, _: x + 1).numpy()
         print("학습 데이터 개수", number_train)
 
         return train_data, number_train
@@ -74,15 +82,11 @@ class DatasetGenerator:
     @tf.function
     def preprocess(self, sample):
         img = tf.cast(sample['rgb'], tf.float32)
-        age = tf.cast(sample['age'], tf.float32)
+        age = tf.cast(sample['age'], tf.int32)
 
-        if tf.random.uniform([]) > 0.5:
-            img = tf.image.resize(img, size=(self.image_size[0] * 2, self.image_size[1] * 2),
-                        method=tf.image.ResizeMethod.BILINEAR)
-
-            img = tf.image.random_crop(img, [self.image_size[0], self.image_size[1], 3])
+        img = tf.image.resize(img, size=(self.image_size[0], self.image_size[1]),
+                    method=tf.image.ResizeMethod.BILINEAR)
         
-
         if tf.random.uniform([]) > 0.5:
             img = tf.image.random_saturation(img, 0.5, 1.5)
         if tf.random.uniform([]) > 0.5:
@@ -93,21 +97,24 @@ class DatasetGenerator:
             img = tf.image.flip_left_right(img)
 
         img = preprocess_input(img, mode='torch')
+        age = tf.one_hot(age, 7)
 
         return (img, age)
+
 
     @tf.function
     def preprocess_valid(self, sample):
         img = tf.cast(sample['rgb'], tf.float32)
-        age = tf.cast(sample['age'], tf.float32)
+        age = tf.cast(sample['age'], tf.int32)
 
         img = tf.image.resize(img, size=self.image_size,
                     method=tf.image.ResizeMethod.BILINEAR)
 
         img = preprocess_input(img, mode='torch')
-        
+        age = tf.one_hot(age, 7)
 
         return (img, age)
+
 
     def get_trainData(self, train_data):
         train_data = train_data.shuffle(1024)
@@ -117,10 +124,12 @@ class DatasetGenerator:
         train_data = train_data.repeat()
         return train_data
 
+
     def get_validData(self, valid_data):
         valid_data = valid_data.map(self.preprocess_valid, num_parallel_calls=AUTO)
         valid_data = valid_data.padded_batch(self.batch_size).prefetch(AUTO)
         return valid_data
+
 
     def get_testData(self, valid_data):
         valid_data = valid_data.map(self.load_test)
