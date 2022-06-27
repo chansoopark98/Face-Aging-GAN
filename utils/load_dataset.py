@@ -74,19 +74,14 @@ class DatasetGenerator:
     @tf.function
     def preprocess(self, sample):
         img = tf.cast(sample['rgb'], tf.float32)
-        mask = tf.cast(sample['mask'], tf.float32)
+        age = tf.cast(sample['age'], tf.float32)
 
         if tf.random.uniform([]) > 0.5:
             img = tf.image.resize(img, size=(self.image_size[0] * 2, self.image_size[1] * 2),
                         method=tf.image.ResizeMethod.BILINEAR)
-            mask = tf.image.resize(mask, size=(self.image_size[0] * 2, self.image_size[1] * 2),
-                        method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
-            concat_img = tf.concat([img, mask], axis=-1)
-            concat_img = tf.image.random_crop(concat_img, [self.image_size[0], self.image_size[1], 4])
+            img = tf.image.random_crop(img, [self.image_size[0], self.image_size[1], 3])
         
-            img = concat_img[:, :, :3]
-            mask = concat_img[:, :, 3:]
 
         if tf.random.uniform([]) > 0.5:
             img = tf.image.random_saturation(img, 0.5, 1.5)
@@ -96,33 +91,23 @@ class DatasetGenerator:
             img = tf.image.random_contrast(img, 0.5, 1.5)           
         if tf.random.uniform([]) > 0.5:
             img = tf.image.flip_left_right(img)
-            mask = tf.image.flip_left_right(mask)
 
         img = preprocess_input(img, mode='torch')
-        # img /= 255.
-        mask = tf.where(mask>=200., 255., 0.)
-        mask /= 255.
-        mask = tf.clip_by_value(mask, 0., 1.)
 
-        return (img, mask)
+        return (img, age)
 
     @tf.function
     def preprocess_valid(self, sample):
         img = tf.cast(sample['rgb'], tf.float32)
-        mask = tf.cast(sample['mask'], tf.float32)
+        age = tf.cast(sample['age'], tf.float32)
 
         img = tf.image.resize(img, size=self.image_size,
                     method=tf.image.ResizeMethod.BILINEAR)
-        mask = tf.image.resize(mask, size=self.image_size,
-                    method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
         img = preprocess_input(img, mode='torch')
-        # img /= 255.
-        mask = tf.where(mask>=200., 255., 0.)
-        mask /= 255.
-        mask = tf.clip_by_value(mask, 0., 1.)
+        
 
-        return (img, mask)
+        return (img, age)
 
     def get_trainData(self, train_data):
         train_data = train_data.shuffle(1024)
